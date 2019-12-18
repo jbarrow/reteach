@@ -20,4 +20,4 @@ if __name__ == '__main__':
                 print(line.strip())
             else:
                 token_index, *_ = line.split()
-                print(line.strip() + '\t' + label)
+                print(line.strip() + '\t' + labels[token_index])

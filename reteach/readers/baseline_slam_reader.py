@@ -1,4 +1,6 @@
 from typing import Dict, Tuple, List, Iterable
+import logging
+
 from overrides import overrides
 from conllu.parser import parse_line, DEFAULT_FIELDS
 
@@ -9,17 +11,63 @@ from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import SingleIdTokenIndexer, TokenIndexer
 from allennlp.data.tokenizers import Token
 
-from .baseline_slam_reader import unpack_token_index, lazy_parse, FIELDS
-
-import logging
-import numpy as np
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
-token_features = ['Gender', 'Person', 'VerbForm', 'Definite', 'Mood', 'PronType', 'fPOS', 'Number', 'Tense']
+FIELDS = [
+    'form',
+    'upostag',
+    'feats',
+    'deprel',
+    'head'
+]
 
-@DatasetReader.register("slam_reader")
-@DatasetReader.register("slam-reader")
+def unpack_token_index(token_index: str) -> Tuple[str, int, int]:
+    """
+    The Duolingo SLAM dataset packs the following information into the
+    token index:
+
+        [_ _ _ _ _ _ _ _] [_ _] [_ _]
+
+    The first 8 digits are the base64 encoded session ID, the next 2 are
+    the index of the exercise within the session, and the final 2 are the
+    index of the token in the exercise.
+    """
+    return {
+        'session_id': token_index[:8],
+        'exercise_id': int(token_index[8:10]),
+        'id': int(token_index[10:])
+    }
+
+
+def lazy_parse(text: str, fields: Tuple[str, ...]=DEFAULT_FIELDS):
+    for sentence in text.split("\n\n"):
+        if not sentence: continue
+        annotation = []
+        features = {}
+        for line in sentence.split("\n"):
+            if line.strip().startswith("#"):
+                if line[:8] == '# prompt':
+                    features['prompt'] = line.strip().split(':')[1]
+                else:
+                    new_features = line.strip()[1:].split()
+                    for new_feature in new_features:
+                        name, value = new_feature.split(':')
+                        features[name] = value
+                continue
+
+            index_label, *data = line.strip().split()
+            *data, label = data
+
+            output = parse_line('\t'.join(data), fields)
+            output.update(unpack_token_index(index_label))
+            output.update({'label': int(label)})
+
+            annotation.append(output)
+
+        yield annotation, features
+
+
+@DatasetReader.register("baseline_slam_reader")
 class SLAMDatasetReader(DatasetReader):
     """
     Reads in a CoNLL-U formatted SLAM dataset, including all Duolingo-specific
@@ -40,46 +88,23 @@ class SLAMDatasetReader(DatasetReader):
     def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
         file_path = cached_path(file_path)
-        i = 0
 
         with open(file_path, 'r') as conllu_file:
             logger.info("Reading token instances from conllu dataset at: %s", file_path)
 
             for annotation, features in lazy_parse(conllu_file.read(), fields=FIELDS):
-
-                i += 1
-                if i == 100: break
-
                 annotation = [x for x in annotation if x["id"] is not None]
 
                 labels = [x["label"] for x in annotation]
                 words = [x["form"] for x in annotation]
 
-                token_level = [{k: v for k, v in x['feats'].items() if k in token_features} for x in annotation]
-
-                numerical = {}
-                categorical = {}
-                token_level = {}
-
-                for k, v in features.items():
-                    if k in ['days', 'time']:
-                        try:
-                            numerical[k] = float(v)
-                        except ValueError:
-                            # TODO: do some smarter missing value imputation
-                            numerical[k] = 0.
-                    else:
-                        categorical[k] = v
-
-                yield self.text_to_instance(words, labels, categorical, numerical, token_level)
+                yield self.text_to_instance(words, labels, features)
 
     @overrides
     def text_to_instance(self,  # type: ignore
                          words: List[str],
                          token_labels: List[int] = None,
-                         categorical: Dict[str, str] = {},
-                         numerical: Dict[str, float] = {},
-                         token_level: Dict[str, List[str]] = {}) -> Instance:
+                         features: Dict[str, str] = None) -> Instance:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -97,16 +122,9 @@ class SLAMDatasetReader(DatasetReader):
         tokens = TextField([Token(w) for w in words], {"tokens": self._token_indexers["tokens"]})
         fields["words"] = tokens
 
-        for feature, value in categorical.items():
-            if feature not in self._token_indexers.keys(): continue
-            fields[feature] = TextField([Token(value)], { feature: self._token_indexers[feature] })
-
-        for feature, value in numerical.items():
-            fields[feature] = ArrayField(np.array([value]))
-
-        #token_level_features = []
-        #for token_features in token_level:
-        #    fields[]
+        features = [f'{k}_{v}' for k, v in features.items()]
+        features = TextField([Token(f) for f in features], {"features": self._token_indexers["features"]})
+        fields["features"] = features
 
         if token_labels is not None:
             fields["labels"] = SequenceLabelField(token_labels, tokens,
