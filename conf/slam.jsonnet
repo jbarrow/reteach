@@ -24,7 +24,7 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
       }
    },
    iterator: {
-      batch_size: 32,
+      batch_size: 128,
       type: "basic"
 //      type: "bucket",
 //      sorting_keys: [["tokens", "num_tokens"]]
@@ -44,16 +44,17 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
      feature_embedder: {
        [feature]: {
          type: "embedding",
-         embedding_dim: 50,
+         embedding_dim: 100,
          trainable: true
        } for feature in features
      } + { allow_unmatched_keys: true },
      encoder: {
        type: 'lstm',
-       input_size: 300 + 5 * 50 + 2,
+       input_size: 300 + 5 * 100 + 2,
        hidden_size: 300,
+       num_layers: 3,
        bidirectional: true,
-       dropout: 0.1
+       dropout: 0.5
      },
      classifier: {
        input_dim: 600,
@@ -61,7 +62,7 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
        hidden_dims: 2,
        activations: 'linear'
      },
-     dropout: 0.3
+     dropout: 0.5
    },
    trainer: {
      num_epochs: 10,
@@ -71,7 +72,7 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
      validation_metric: '+f1',
      optimizer: {
        type: 'adam',
-       lr: 0.003
+       lr: 0.001
      }
    }
 }

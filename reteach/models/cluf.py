@@ -18,19 +18,34 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-@Model.register('user-model-lstm')
-@Model.register('user_model_lstm')
-class UserModelLSTM(Model):
+@Model.register('cluf')
+class CLUFModel(Model):
     def __init__(self,
                  vocab: Vocabulary,
-                 encoder: Seq2SeqEncoder,
                  classifier: FeedForward,
+                 user_encoder: FeedForward,
+                 format_encoder: FeedForward,
                  feature_embedder: TextFieldEmbedder,
                  embedder: TextFieldEmbedder,
+                 word_context_encoder: Optional[Seq2SeqEncoder] = None,
+                 character_context_encoder: Optional[Seq2VecEncoder] = None,
+                 linguistic_encoder: Optional[Seq2SeqEncoder] = None,
                  dropout: float = 0.5) -> None:
         super().__init__(vocab)
 
-        print(vocab)
+        # The idea behind the CLUF model is to separately encode the:
+        #  (C)ontext, (L)inguistic Features, (U)ser, and (F)ormat
+        # which is what the following parameters do.
+
+        # (C)ontext Encoder
+        self._word_context_encoder = word_context_encoder
+        self._character_context_encoder = character_context_encoder
+        # (L)inguistic Encoder
+        self._linguistic_encoder = linguistic_encoder
+        # (U)ser Encoder
+        self._user_encoder = user_encoder
+        # (F)ormat Encoder
+        self._format_encoder = format_encoder
 
         self._classifier = TimeDistributed(classifier)
         self._embedder = embedder
