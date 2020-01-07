@@ -44,13 +44,13 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
      feature_embedder: {
        [feature]: {
          type: "embedding",
-         embedding_dim: 10,
+         embedding_dim: 50,
          trainable: true
        } for feature in features
      } + { allow_unmatched_keys: true },
      encoder: {
        type: 'lstm',
-       input_size: 352,
+       input_size: 300 + 5 * 50 + 2,
        hidden_size: 300,
        bidirectional: true,
        dropout: 0.1
@@ -68,7 +68,7 @@ local features = ['user', 'countries', 'client', 'session', 'format'];
      patience: 5,
      cuda_device: cuda-1,
      grad_clipping: 5.0,
-     validation_metric: '+auc',
+     validation_metric: '+f1',
      optimizer: {
        type: 'adam',
        lr: 0.003

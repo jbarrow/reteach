@@ -17,6 +17,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def weighted_sequence_cross_entropy_with_logits(logits: torch.FloatTensor,
+                                                  targets: torch.LongTensor,
+                                                  mask: torch.FloatTensor,
+                                                  weights: torch.FloatTensor = None) -> torch.FloatTensor:
+    num_classes = logits.size(-1)
+    # make sure weights are float
+    mask = mask.float().view(-1)
+    logits = logits.view(-1, num_classes)
+    targets = targets.view(-1)
+    #print(mask.shape, logits.shape, targets.shape)
+    loss = F.cross_entropy(logits, targets, weight=weights, reduction='none')
+    #print(loss.shape)
+    loss = (loss * mask).mean()
+    #print('')
+    return loss
+
 @Model.register('user-model-lstm')
 @Model.register('user_model_lstm')
 class UserModelLSTM(Model):
@@ -38,6 +54,7 @@ class UserModelLSTM(Model):
         self._dropout = nn.Dropout(dropout)
         self._auc = Auc()
         self._f1 = F1Measure(1)
+        #self._pos_weight = 2.0
 
     def forward(self, words: Dict[str, torch.Tensor],
                 days: torch.Tensor, time: torch.Tensor,
@@ -67,7 +84,8 @@ class UserModelLSTM(Model):
         output['logits'] = logits
 
         if labels is not None:
-            output['loss'] = sequence_cross_entropy_with_logits(logits, labels, mask, label_smoothing=0.1, gamma=2, alpha=0.25)
+            # output['loss'] = weighted_sequence_cross_entropy_with_logits(logits, labels, mask, weights = torch.Tensor([1.0, self._pos_weight]))
+            output['loss'] = sequence_cross_entropy_with_logits(logits, labels, mask)
             # shape : (batch * words,)
             logits = F.softmax(logits, dim=-1)
             logits = logits.view(batch * num_words, -1)
@@ -78,8 +96,6 @@ class UserModelLSTM(Model):
 
             self._auc(logits[:, 1], labels, auc_mask)
             self._f1(logits, labels, auc_mask)
-
-        print(output)
 
         return output
 

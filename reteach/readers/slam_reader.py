@@ -40,15 +40,15 @@ class SLAMDatasetReader(DatasetReader):
     def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
         file_path = cached_path(file_path)
-        i = 0
+        # i = 0
 
         with open(file_path, 'r') as conllu_file:
             logger.info("Reading token instances from conllu dataset at: %s", file_path)
 
             for annotation, features in lazy_parse(conllu_file.read(), fields=FIELDS):
 
-                i += 1
-                if i == 100: break
+                # i += 1
+                # if i == 10000: break
 
                 annotation = [x for x in annotation if x["id"] is not None]
 
@@ -64,7 +64,7 @@ class SLAMDatasetReader(DatasetReader):
                 for k, v in features.items():
                     if k in ['days', 'time']:
                         try:
-                            numerical[k] = float(v)
+                            numerical[k] = min(float(v), 100.)
                         except ValueError:
                             # TODO: do some smarter missing value imputation
                             numerical[k] = 0.
