@@ -1,7 +1,7 @@
 local cuda = std.parseInt(std.extVar('cuda'));
 local pair = "fr_en";
 
-local base = if (cuda == 0) then "/home/jdbarrow/Research/data/slam/" + pair + "/" else "/fs/clip-scratch-new/joe/slam/" + pair + "/";
+local base = if (cuda == 0) then "/home/jdbarrow/Research/data/slam/" + pair + "/" else "/fs/clip-scratch/joe/slam/" + pair + "/";
 
 local features = ['user', 'countries', 'client', 'session', 'format'];
 

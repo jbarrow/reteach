@@ -32,23 +32,27 @@ class SLAMDatasetReader(DatasetReader):
     """
     def __init__(self,
                  token_indexers: Dict[str, TokenIndexer] = None,
+                 include_pos_features: bool = False,
                  lazy: bool = False) -> None:
         super().__init__(lazy)
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
+        self._include_pos_features = include_pos_features
 
     @overrides
     def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
         file_path = cached_path(file_path)
-        # i = 0
+        i = 0
 
         with open(file_path, 'r') as conllu_file:
             logger.info("Reading token instances from conllu dataset at: %s", file_path)
 
             for annotation, features in lazy_parse(conllu_file.read(), fields=FIELDS):
 
-                # i += 1
-                # if i == 10000: break
+                i += 1
+                if i == 10000: break
+                #
+                # print(annotation)
 
                 annotation = [x for x in annotation if x["id"] is not None]
 
