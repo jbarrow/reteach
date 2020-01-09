@@ -1,1 +1,4 @@
 allennlp
+jupyter
+pandas
+nb_conda
