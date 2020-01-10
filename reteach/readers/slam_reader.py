@@ -49,7 +49,7 @@ class SLAMDatasetReader(DatasetReader):
 
             for annotation, features in lazy_parse(conllu_file.read(), fields=FIELDS):
                 # i += 1
-                # if i == 10000: break
+                # if i == 1000: break
 
                 annotation = [x for x in annotation if x["id"] is not None]
 
@@ -95,7 +95,13 @@ class SLAMDatasetReader(DatasetReader):
         An instance containing words and token labels.
         """
         fields: Dict[str, Field] = {}
-        tokens = TextField([Token(w) for w in words], {"tokens": self._token_indexers["tokens"]})
+
+        token_indexers = {"tokens": self._token_indexers["tokens"]}
+
+        if 'token_characters' in self._token_indexers:
+            token_indexers['token_characters'] = self._token_indexers["token_characters"]
+
+        tokens = TextField([Token(w) for w in words], token_indexers)
         fields["words"] = tokens
 
         for feature, value in categorical.items():

@@ -26,8 +26,7 @@ class CLUFModel(Model):
                  user_feature_embedder: TextFieldEmbedder,
                  format_feature_embedder: TextFieldEmbedder,
                  embedder: TextFieldEmbedder,
-                 context_encoder_word: Seq2SeqEncoder,
-                 context_encoder_character: Seq2VecEncoder,
+                 context_encoder: Seq2SeqEncoder,
                  user_encoder: FeedForward,
                  format_encoder: FeedForward,
                  global_encoder: FeedForward,
@@ -43,8 +42,7 @@ class CLUFModel(Model):
         # which is what the following parameters do.
 
         # (C)ontext Encoder
-        self._context_encoder_word = context_encoder_word
-        self._context_encoder_character = context_encoder_character
+        self._context_encoder = context_encoder
         # (L)inguistic Encoder
         self._linguistic_encoder = linguistic_encoder
         # (U)ser Encoder
@@ -95,7 +93,7 @@ class CLUFModel(Model):
         words = self._embedder(words)
         words = self._dropout(words)
         # shape : (batch, words, embeddings)
-        words = self._context_encoder_word(words, mask)
+        words = self._context_encoder(words, mask)
         words = self._dropout(words)
         # shape : (batch, words, local_dim)
         local_information = self._local_encoder(words)
@@ -106,6 +104,7 @@ class CLUFModel(Model):
         format_encoded = self._format_encoder(torch.cat([format_feature_values.squeeze(1), time], dim=1))
         # shape : (batch, users_dim+format_dim)
         global_information = torch.cat([users_encoded, format_encoded], dim=1)
+        global_information = self._dropout(global_information)
         # shape : (batch, global_dim)
         global_information = self._global_encoder(global_information)
         # shape : (batch, words, global_dim)
@@ -114,6 +113,7 @@ class CLUFModel(Model):
 
         # shape : (batch, words, global/local_dim)
         mixed = local_information * global_information
+        mixed = self._dropout(mixed)
         # shape : (batch, words, 2)
         logits = self._classifier(mixed)
 
